@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>OBS REMOTE :: CONTROL</title>
+
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        obs: {
+                            bg: '#000000',
+                            surface: '#0a0a0a',
+                            border: '#1a1a1a',
+                            green: '#00ff88',
+                            red: '#ff2244',
+                            yellow: '#ffcc00',
+                            blue: '#00aaff',
+                            dim: '#333333',
+                            text: '#e0e0e0',
+                            muted: '#666666',
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', '"Fira Code"', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'blink': 'blink 1.2s steps(2, start) infinite',
+                    },
+                    keyframes: {
+                        blink: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.2' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- obs-websocket-js v5 -->
+    <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5.0.6/dist/obs-ws.min.js">
+    </script>
+
+    <style>
+        :root {
+            --obs-bg: #000000;
+            --obs-surface: #0a0a0a;
+            --obs-border: #1a1a1a;
+            --obs-green: #00ff88;
+            --obs-red: #ff2244;
+            --obs-yellow: #ffcc00;
+            --obs-blue: #00aaff;
+            --obs-dim: #333333;
+            --obs-text: #e0e0e0;
+            --obs-muted: #666666;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            background: #000000;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar minimalista */
+        ::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Botones táctiles */
+        .touch-btn {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.08s ease-out;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            border: 1px solid #1a1a1a;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.85rem;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .touch-btn:active {
+            transform: scale(0.97);
+            background: #1a1a1a;
+            border-color: #333;
+        }
+
+        .touch-btn:focus-visible {
+            outline: 2px solid #00ff88;
+            outline-offset: 2px;
+        }
+
+        /* Escenas */
+        .scene-btn {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            border: 1.5px solid #1a1a1a;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.8rem;
+            letter-spacing: 0.03em;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.6rem;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            outline: none;
+            width: 100%;
+            min-height: 48px;
+            -webkit-tap-highlight-color: transparent;
+            text-align: left;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .scene-btn:active {
+            transform: scale(0.98);
+            background: #1a1a1a;
+        }
+
+        .scene-btn.active-scene {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.06);
+            color: #00ff88;
+            box-shadow: 0 0 16px rgba(0, 255, 136, 0.12), inset 0 0 16px rgba(0, 255, 136, 0.03);
+        }
+
+        .scene-btn.active-scene::before {
+            content: '▸';
+            position: absolute;
+            left: -2px;
+            color: #00ff88;
+            font-size: 1rem;
+            animation: blink 1.2s steps(2, start) infinite;
+        }
+
+        /* Botones globales */
+        .global-btn {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            border: 1.5px solid #1a1a1a;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 8px;
+            font-weight: 600;
+            outline: none;
+            min-height: 52px;
+            -webkit-tap-highlight-color: transparent;
+            flex: 1;
+        }
+
+        .global-btn:active {
+            transform: scale(0.96);
+            background: #1a1a1a;
+        }
+
+        .global-btn.btn-streaming {
+            border-color: #ff2244;
+            background: rgba(255, 34, 68, 0.08);
+            color: #ff2244;
+            box-shadow: 0 0 20px rgba(255, 34, 68, 0.18);
+            animation: pulse-fast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .global-btn.btn-recording {
+            border-color: #ff2244;
+            background: rgba(255, 34, 68, 0.1);
+            color: #ff2244;
+            box-shadow: 0 0 20px rgba(255, 34, 68, 0.2);
+            animation: pulse-fast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Indicador de conexión */
+        .conn-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #333;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        .conn-dot.connected {
+            background: #00ff88;
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.6);
+            animation: pulse-fast 1.5s ease-in-out infinite;
+        }
+        .conn-dot.connecting {
+            background: #ffcc00;
+            box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
+            animation: pulse-fast 0.8s ease-in-out infinite;
+        }
+        .conn-dot.disconnected {
+            background: #ff2244;
+            box-shadow: 0 0 8px rgba(255, 34, 68, 0.3);
+        }
+
+        /* Panel de conexión */
+        .conn-panel {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+        }
+        .conn-panel.open {
+            max-height: 400px;
+            opacity: 1;
+        }
+
+        /* Inputs */
+        .obs-input {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.8rem;
+            padding: 0.6rem 0.8rem;
+            border-radius: 6px;
+            outline: none;
+            transition: all 0.15s ease;
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .obs-input:focus {
+            border-color: #00ff88;
+            box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.15);
+        }
+        .obs-input::placeholder {
+            color: #444;
+        }
+        .obs-input[type="password"] {
+            letter-spacing: 0.2em;
+        }
+
+        /* Preview */
+        .preview-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #050505;
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: auto;
+        }
+        .preview-placeholder {
+            color: #333;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .preview-placeholder .icon {
+            font-size: 2rem;
+            opacity: 0.4;
+        }
+
+        /* Badge de estado */
+        .status-badge {
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        /* Layout */
+        .app-container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        @media (min-width: 768px) {
+            .app-container {
+                padding: 1.25rem;
+                gap: 0.8rem;
+            }
+            .touch-btn {
+                font-size: 0.9rem;
+                padding: 0.75rem 1.2rem;
+            }
+            .scene-btn {
+                font-size: 0.85rem;
+                padding: 0.9rem 1.2rem;
+            }
+        }
+
+        /* Audio rows */
+        .audio-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0.7rem;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            background: #0a0a0a;
+            transition: all 0.12s ease;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            min-height: 48px;
+        }
+        .audio-row:active {
+            background: #1a1a1a;
+            transform: scale(0.98);
+        }
+        .audio-row.muted {
+            border-color: #ff2244;
+            background: rgba(255, 34, 68, 0.05);
+        }
+        .audio-row.muted .audio-name {
+            color: #ff2244;
+        }
+        .audio-name {
+            flex: 1;
+            font-size: 0.75rem;
+            letter-spacing: 0.03em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #e0e0e0;
+        }
+        .audio-toggle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1.5px solid #1a1a1a;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #e0e0e0;
+            transition: all 0.1s ease;
+            flex-shrink: 0;
+        }
+        .audio-row.muted .audio-toggle {
+            border-color: #ff2244;
+            color: #ff2244;
+            background: rgba(255, 34, 68, 0.1);
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            pointer-events: none;
+        }
+        .toast {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: #e0e0e0;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.25s ease;
+            pointer-events: auto;
+            text-align: center;
+            min-width: 200px;
+            max-width: 90vw;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success {
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+        .toast.error {
+            border-color: #ff2244;
+            color: #ff2244;
+        }
+        .toast.info {
+            border-color: #00aaff;
+            color: #00aaff;
+        }
+
+        /* Indicador de latencia */
+        .latency-bar {
+            height: 2px;
+            background: #1a1a1a;
+            border-radius: 1px;
+            overflow: hidden;
+            flex: 1;
+            min-width: 30px;
+        }
+        .latency-bar .fill {
+            height: 100%;
+            background: #00ff88;
+            border-radius: 1px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Contenedor de toasts -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Contenedor principal de la app -->
+    <div class="app-container" id="app">
+
+        <!-- ===== HEADER: Estado de conexión ===== -->
+        <header class="flex items-center justify-between gap-2 px-1 pt-1 pb-0.5">
+            <div class="flex items-center gap-2.5">
+                <div class="conn-dot disconnected" id="connDot"></div>
+                <div class="text-xs sm:text-sm font-semibold tracking-widest text-obs-text" id="connStatusText">
+                    <span class="text-obs-muted">[</span> OFFLINE <span class="text-obs-muted">]</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[0.6rem] text-obs-muted tracking-wider hidden sm:inline" id="connLatencyText">-- ms</span>
+                <button class="touch-btn !p-2 !min-h-0 !rounded-md !text-xs" id="btnToggleConnPanel" title="Configurar conexión" aria-label="Configurar conexión">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===== PANEL DE CONEXIÓN ===== -->
+        <div class="conn-panel" id="connPanel">
+            <div class="bg-obs-surface border border-obs-border rounded-lg p-3 sm:p-4 flex flex-col gap-2.5">
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[0.6rem] text-obs-muted tracking-wider uppercase">IP / Host</label>
+                        <input type="text" id="inputHost" class="obs-input" placeholder="192.168.1.100" value="" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[0.6rem] text-obs-muted tracking-wider uppercase">Puerto</label>
+                        <input type="number" id="inputPort" class="obs-input" placeholder="4455" value="4455" min="1" max="65535">
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-[0.6rem] text-obs-muted tracking-wider uppercase">Contraseña (opcional)</label>
+                    <input type="password" id="inputPassword" class="obs-input" placeholder="••••••••" autocomplete="off">
+                </div>
+                <div class="flex gap-2 mt-1">
+                    <button class="touch-btn flex-1 !bg-obs-green/10 !border-obs-green/40 !text-obs-green hover:!bg-obs-green/20" id="btnConnect">
+                        ⚡ CONECTAR
+                    </button>
+                    <button class="touch-btn flex-1 !border-obs-red/40 !text-obs-red hover:!bg-obs-red/10" id="btnDisconnect">
+                        ✕ DESCONECTAR
+                    </button>
+                </div>
+                <div class="text-[0.6rem] text-obs-muted text-center tracking-wider">
+                    <span class="text-obs-dim">[</span> OBS WebSocket v5 <span class="text-obs-dim">]</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CONTROLES GLOBALES: STREAM & RECORD ===== -->
+        <div class="flex gap-2 sm:gap-3">
+            <button class="global-btn" id="btnStream" title="Iniciar/Detener Transmisión">
+                <span class="text-base leading-none">📡</span>
+                <span class="hidden sm:inline">STREAM</span>
+                <span class="sm:hidden">STR</span>
+                <span class="status-badge ml-1 hidden" id="streamBadge">●</span>
+            </button>
+            <button class="global-btn" id="btnRecord" title="Iniciar/Detener Grabación">
+                <span class="text-base leading-none">⏺</span>
+                <span class="hidden sm:inline">RECORD</span>
+                <span class="sm:hidden">REC</span>
+                <span class="status-badge ml-1 hidden" id="recordBadge">●</span>
+            </button>
+        </div>
+
+        <!-- ===== VISTA PREVIA ===== -->
+        <div class="preview-container" id="previewContainer">
+            <div class="preview-placeholder" id="previewPlaceholder">
+                <span class="icon">🎥</span>
+                <span>NO SIGNAL</span>
+            </div>
+            <img id="previewImg" class="hidden" alt="Vista previa de OBS" draggable="false">
+        </div>
+        <div class="flex items-center gap-2 text-[0.6rem] text-obs-muted tracking-wider px-1">
+            <span>PREVIEW</span>
+            <div class="latency-bar"><div class="fill" id="previewLatencyFill"></div></div>
+            <span id="previewIntervalLabel">2.0s</span>
+            <input type="range" id="previewIntervalSlider" min="500" max="10000" step="500" value="2000" class="w-20 accent-obs-green cursor-pointer" title="Intervalo de actualización del preview">
+        </div>
+
+        <!-- ===== LISTA DE ESCENAS ===== -->
+        <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-[0.6rem] font-semibold tracking-[0.15em] text-obs-muted uppercase">
+                    <span class="text-obs-dim">//</span> Escenas
+                </h2>
+                <span class="text-[0.6rem] text-obs-muted tracking-wider" id="sceneCount">0</span>
+            </div>
+            <div class="flex flex-col gap-1.5 max-h-[40vh] overflow-y-auto pr-0.5" id="sceneList">
+                <!-- Las escenas se insertan aquí dinámicamente -->
+                <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                    <span class="text-obs-dim">[</span> SIN CONEXIÓN <span class="text-obs-dim">]</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CONTROLES DE AUDIO ===== -->
+        <div class="flex flex-col gap-2 mt-1">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-[0.6rem] font-semibold tracking-[0.15em] text-obs-muted uppercase">
+                    <span class="text-obs-dim">//</span> Audio
+                </h2>
+                <span class="text-[0.6rem] text-obs-muted tracking-wider" id="audioCount">0</span>
+            </div>
+            <div class="flex flex-col gap-1.5 max-h-[25vh] overflow-y-auto pr-0.5" id="audioList">
+                <!-- Las fuentes de audio se insertan aquí dinámicamente -->
+                <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                    <span class="text-obs-dim">[</span> SIN CONEXIÓN <span class="text-obs-dim">]</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== FOOTER ===== -->
+        <footer class="text-center text-[0.55rem] text-obs-dim tracking-[0.2em] mt-auto pt-3 pb-1">
+            <span class="text-obs-muted">OBS REMOTE</span> · ULTRA LOW LATENCY · <span id="footerConnState">DISCONNECTED</span>
+        </footer>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // =====================================================
+            // CONSTANTES Y ESTADO GLOBAL
+            // =====================================================
+            const DEFAULT_PORT = 4455;
+            const DEFAULT_INTERVAL = 2000;
+            const PREVIEW_QUALITY = 50; // JPEG quality
+            const PREVIEW_WIDTH = 640; // Ancho máximo para el preview
+            const RECONNECT_DELAY = 3000;
+            const MAX_RECONNECT_ATTEMPTS = 5;
+            const TOAST_DURATION = 2500;
+
+            // Estado de la aplicación
+            const state = {
+                obs: null,
+                connected: false,
+                connecting: false,
+                reconnectAttempts: 0,
+                reconnectTimer: null,
+                previewTimer: null,
+                previewInterval: DEFAULT_INTERVAL,
+                currentScene: null,
+                scenes: [],
+                audioInputs: [],
+                streaming: false,
+                recording: false,
+                mutedInputs: new Set(), // Nombres de inputs silenciados
+                latency: {
+                    lastPing: 0,
+                    value: 0,
+                },
+                config: {
+                    host: '',
+                    port: DEFAULT_PORT,
+                    password: '',
+                }
+            };
+
+            // =====================================================
+            // REFERENCIAS DOM
+            // =====================================================
+            const $ = (id) => document.getElementById(id);
+            const dom = {
+                connDot: $('connDot'),
+                connStatusText: $('connStatusText'),
+                connLatencyText: $('connLatencyText'),
+                connPanel: $('connPanel'),
+                btnToggleConnPanel: $('btnToggleConnPanel'),
+                inputHost: $('inputHost'),
+                inputPort: $('inputPort'),
+                inputPassword: $('inputPassword'),
+                btnConnect: $('btnConnect'),
+                btnDisconnect: $('btnDisconnect'),
+                btnStream: $('btnStream'),
+                btnRecord: $('btnRecord'),
+                streamBadge: $('streamBadge'),
+                recordBadge: $('recordBadge'),
+                previewContainer: $('previewContainer'),
+                previewPlaceholder: $('previewPlaceholder'),
+                previewImg: $('previewImg'),
+                previewLatencyFill: $('previewLatencyFill'),
+                previewIntervalSlider: $('previewIntervalSlider'),
+                previewIntervalLabel: $('previewIntervalLabel'),
+                sceneList: $('sceneList'),
+                sceneCount: $('sceneCount'),
+                audioList: $('audioList'),
+                audioCount: $('audioCount'),
+                footerConnState: $('footerConnState'),
+                toastContainer: $('toastContainer'),
+            };
+
+            // =====================================================
+            // UTILIDADES
+            // =====================================================
+            function hapticFeedback(pattern) {
+                try {
+                    if (navigator.vibrate) {
+                        navigator.vibrate(pattern || 10);
+                    }
+                } catch (e) { /* silencioso */ }
+            }
+
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                dom.toastContainer.appendChild(toast);
+
+                // Trigger reflow para la animación
+                void toast.offsetWidth;
+                toast.classList.add('show');
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, TOAST_DURATION);
+            }
+
+            function formatLatency(ms) {
+                if (ms < 1) return '--';
+                if (ms < 10) return ms.toFixed(1);
+                return Math.round(ms).toString();
+            }
+
+            function updateConnectionUI() {
+                const dot = dom.connDot;
+                const statusText = dom.connStatusText;
+                const footerState = dom.footerConnState;
+
+                dot.className = 'conn-dot';
+                if (state.connected) {
+                    dot.classList.add('connected');
+                    statusText.innerHTML =
+                        '<span class="text-obs-muted">[</span> <span class="text-obs-green">CONNECTED</span> <span class="text-obs-muted">]</span>';
+                    footerState.textContent = 'CONNECTED';
+                    footerState.style.color = '#00ff88';
+                    dom.connLatencyText.textContent = formatLatency(state.latency.value) + ' ms';
+                } else if (state.connecting) {
+                    dot.classList.add('connecting');
+                    statusText.innerHTML =
+                        '<span class="text-obs-muted">[</span> <span class="text-obs-yellow">CONNECTING...</span> <span class="text-obs-muted">]</span>';
+                    footerState.textContent = 'CONNECTING...';
+                    footerState.style.color = '#ffcc00';
+                } else {
+                    dot.classList.add('disconnected');
+                    statusText.innerHTML =
+                        '<span class="text-obs-muted">[</span> <span class="text-obs-red">OFFLINE</span> <span class="text-obs-muted">]</span>';
+                    footerState.textContent = 'DISCONNECTED';
+                    footerState.style.color = '#666666';
+                    dom.connLatencyText.textContent = '-- ms';
+                }
+            }
+
+            function updateStreamButton() {
+                const btn = dom.btnStream;
+                const badge = dom.streamBadge;
+                if (state.streaming) {
+                    btn.classList.add('btn-streaming');
+                    badge.classList.remove('hidden');
+                    badge.style.borderColor = '#ff2244';
+                    badge.style.color = '#ff2244';
+                    badge.textContent = '● LIVE';
+                } else {
+                    btn.classList.remove('btn-streaming');
+                    badge.classList.add('hidden');
+                }
+            }
+
+            function updateRecordButton() {
+                const btn = dom.btnRecord;
+                const badge = dom.recordBadge;
+                if (state.recording) {
+                    btn.classList.add('btn-recording');
+                    badge.classList.remove('hidden');
+                    badge.style.borderColor = '#ff2244';
+                    badge.style.color = '#ff2244';
+                    badge.textContent = '● REC';
+                } else {
+                    btn.classList.remove('btn-recording');
+                    badge.classList.add('hidden');
+                }
+            }
+
+            function updateSceneButtons() {
+                const buttons = dom.sceneList.querySelectorAll('.scene-btn');
+                buttons.forEach(btn => {
+                    if (btn.dataset.sceneName === state.currentScene) {
+                        btn.classList.add('active-scene');
+                    } else {
+                        btn.classList.remove('active-scene');
+                    }
+                });
+            }
+
+            function updateAudioUI() {
+                const rows = dom.audioList.querySelectorAll('.audio-row');
+                rows.forEach(row => {
+                    const inputName = row.dataset.inputName;
+                    if (state.mutedInputs.has(inputName)) {
+                        row.classList.add('muted');
+                    } else {
+                        row.classList.remove('muted');
+                    }
+                });
+            }
+
+            function updatePreviewPlaceholder(hasImage) {
+                if (hasImage) {
+                    dom.previewPlaceholder.classList.add('hidden');
+                    dom.previewImg.classList.remove('hidden');
+                } else {
+                    dom.previewPlaceholder.classList.remove('hidden');
+                    dom.previewImg.classList.add('hidden');
+                }
+            }
+
+            function updateLatencyBar(quality) {
+                // quality: 0-1 (1 = excelente)
+                const fill = dom.previewLatencyFill;
+                const pct = Math.max(5, Math.min(100, quality * 100));
+                fill.style.width = pct + '%';
+                if (quality > 0.7) fill.style.background = '#00ff88';
+                else if (quality > 0.4) fill.style.background = '#ffcc00';
+                else fill.style.background = '#ff2244';
+            }
+
+            // =====================================================
+            // GESTIÓN DE CONEXIÓN OBS WEBSOCKET
+            // =====================================================
+            function createObsInstance() {
+                if (state.obs) {
+                    try { state.obs.disconnect(); } catch (e) {}
+                }
+                state.obs = new OBSWebSocket();
+                setupObsEventHandlers();
+                return state.obs;
+            }
+
+            function setupObsEventHandlers() {
+                const obs = state.obs;
+
+                // --- Eventos de conexión ---
+                obs.on('ConnectionOpened', () => {
+                    state.connecting = true;
+                    updateConnectionUI();
+                });
+
+                obs.on('Identified', () => {
+                    state.connected = true;
+                    state.connecting = false;
+                    state.reconnectAttempts = 0;
+                    updateConnectionUI();
+                    showToast('✔ Conexión establecida', 'success');
+                    hapticFeedback(15);
+
+                    // Cargar datos iniciales
+                    loadScenes();
+                    loadAudioInputs();
+                    loadStreamState();
+                    loadRecordState();
+                    loadCurrentScene();
+                    startPreviewLoop();
+                    startLatencyMonitor();
+                });
+
+                obs.on('ConnectionClosed', (data) => {
+                    const wasConnected = state.connected;
+                    state.connected = false;
+                    state.connecting = false;
+                    updateConnectionUI();
+                    stopPreviewLoop();
+                    stopLatencyMonitor();
+                    clearScenes();
+                    clearAudioInputs();
+                    updatePreviewPlaceholder(false);
+
+                    if (wasConnected) {
+                        showToast('✕ Conexión perdida', 'error');
+                        hapticFeedback([20, 50, 20]);
+                    }
+
+                    // Intento de reconexión automática
+                    if (state.reconnectAttempts < MAX_RECONNECT_ATTEMPTS && state.config.host) {
+                        state.reconnectAttempts++;
+                        const delay = RECONNECT_DELAY * state.reconnectAttempts;
+                        showToast(`↻ Reconexión en ${delay/1000}s (${state.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`,
+                        'info');
+                        clearTimeout(state.reconnectTimer);
+                        state.reconnectTimer = setTimeout(() => {
+                            if (!state.connected && !state.connecting && state.config.host) {
+                                doConnect();
+                            }
+                        }, delay);
+                    }
+                });
+
+                obs.on('ConnectionError', (error) => {
+                    state.connecting = false;
+                    updateConnectionUI();
+                    showToast('✕ Error: ' + (error.message || 'desconocido'), 'error');
+                    hapticFeedback([30, 30, 30]);
+                });
+
+                // --- Eventos de OBS ---
+                obs.on('CurrentSceneChanged', (data) => {
+                    state.currentScene = data.sceneName;
+                    updateSceneButtons();
+                });
+
+                obs.on('SceneListChanged', () => {
+                    loadScenes();
+                });
+
+                obs.on('StreamStateChanged', (data) => {
+                    state.streaming = data.outputActive;
+                    updateStreamButton();
+                    hapticFeedback(10);
+                });
+
+                obs.on('RecordStateChanged', (data) => {
+                    state.recording = data.outputActive;
+                    updateRecordButton();
+                    hapticFeedback(10);
+                });
+
+                obs.on('InputMuteStateChanged', (data) => {
+                    if (data.inputMuted) {
+                        state.mutedInputs.add(data.inputName);
+                    } else {
+                        state.mutedInputs.delete(data.inputName);
+                    }
+                    updateAudioUI();
+                });
+
+                obs.on('InputVolumeChanged', (data) => {
+                    // Podríamos actualizar indicadores de volumen aquí
+                });
+            }
+
+            async function doConnect() {
+                const host = dom.inputHost.value.trim();
+                const port = parseInt(dom.inputPort.value) || DEFAULT_PORT;
+                const password = dom.inputPassword.value;
+
+                if (!host) {
+                    showToast('✕ Introduce una dirección IP', 'error');
+                    hapticFeedback([30, 30, 30]);
+                    return;
+                }
+
+                state.config.host = host;
+                state.config.port = port;
+                state.config.password = password;
+
+                // Guardar en localStorage
+                try {
+                    localStorage.setItem('obsRemoteConfig', JSON.stringify({
+                        host,
+                        port,
+                        password: password || '',
+                    }));
+                } catch (e) {}
+
+                state.connecting = true;
+                state.reconnectAttempts = 0;
+                updateConnectionUI();
+
+                const obs = createObsInstance();
+                try {
+                    await obs.connect(`ws://${host}:${port}`, password || undefined, {
+                        rpcVersion: 1,
+                        eventSubscriptions: 0xFFFFFFFF, // Todos los eventos
+                    });
+                    // La identificación se maneja en el evento 'Identified'
+                } catch (error) {
+                    state.connecting = false;
+                    updateConnectionUI();
+                    showToast('✕ No se pudo conectar: ' + (error.message || 'error'), 'error');
+                    hapticFeedback([40, 40, 40]);
+                }
+            }
+
+            async function doDisconnect() {
+                clearTimeout(state.reconnectTimer);
+                state.reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // Evitar reconexión
+                stopPreviewLoop();
+                stopLatencyMonitor();
+                if (state.obs) {
+                    try {
+                        await state.obs.disconnect();
+                    } catch (e) {}
+                }
+                state.connected = false;
+                state.connecting = false;
+                state.currentScene = null;
+                state.scenes = [];
+                state.audioInputs = [];
+                state.streaming = false;
+                state.recording = false;
+                state.mutedInputs.clear();
+                updateConnectionUI();
+                updateStreamButton();
+                updateRecordButton();
+                clearScenes();
+                clearAudioInputs();
+                updatePreviewPlaceholder(false);
+                showToast('Desconectado', 'info');
+            }
+
+            // =====================================================
+            // CARGA DE DATOS DESDE OBS
+            // =====================================================
+            async function loadScenes() {
+                if (!state.connected || !state.obs) return;
+                try {
+                    const result = await state.obs.call('GetSceneList');
+                    state.scenes = result.scenes || [];
+                    renderScenes();
+                    dom.sceneCount.textContent = state.scenes.length;
+                } catch (e) {
+                    console.warn('Error cargando escenas:', e);
+                }
+            }
+
+            async function loadCurrentScene() {
+                if (!state.connected || !state.obs) return;
+                try {
+                    const result = await state.obs.call('GetCurrentProgramScene');
+                    state.currentScene = result.currentProgramSceneName;
+                    updateSceneButtons();
+                } catch (e) {
+                    console.warn('Error cargando escena actual:', e);
+                }
+            }
+
+            async function loadAudioInputs() {
+                if (!state.connected || !state.obs) return;
+                try {
+                    const result = await state.obs.call('GetInputList');
+                    const allInputs = result.inputs || [];
+                    // Filtrar entradas de audio relevantes (tipos de audio comunes)
+                    const audioKinds = ['wasapi_input_capture', 'wasapi_output_capture', 'pulse_input_capture',
+                        'pulse_output_capture', 'coreaudio_input_capture', 'coreaudio_output_capture',
+                        'alsa_input_capture', 'jack_input_capture', 'microphone', 'audio_input'
+                    ];
+                    // También incluir entradas con nombre que sugiera audio
+                    const audioNames = ['mic', 'aux', 'desktop', 'audio', 'system', 'speaker', 'microfono',
+                        'microphone', 'input', 'capture'
+                    ];
+
+                    state.audioInputs = allInputs.filter(input => {
+                        const nameLower = (input.inputName || '').toLowerCase();
+                        const kindLower = (input.inputKind || '').toLowerCase();
+                        const isAudioKind = audioKinds.some(k => kindLower.includes(k.replace('_', ' ')) ||
+                            kindLower.includes(k));
+                        const isAudioName = audioNames.some(n => nameLower.includes(n));
+                        return isAudioKind || isAudioName;
+                    });
+
+                    // Si no encontramos ninguno, incluir todos los inputs no visuales
+                    if (state.audioInputs.length === 0) {
+                        state.audioInputs = allInputs.filter(input => {
+                            const kindLower = (input.inputKind || '').toLowerCase();
+                            return !kindLower.includes('scene') && !kindLower.includes('source') &&
+                                !kindLower.includes('display') && !kindLower.includes('window') &&
+                                !kindLower.includes('game') && !kindLower.includes('browser') &&
+                                !kindLower.includes('image') && !kindLower.includes('text') &&
+                                !kindLower.includes('color');
+                        });
+                    }
+
+                    // Obtener estado de mute para cada input
+                    for (const input of state.audioInputs) {
+                        try {
+                            const muteResult = await state.obs.call('GetInputMute', {
+                                inputName: input.inputName
+                            });
+                            if (muteResult.inputMuted) {
+                                state.mutedInputs.add(input.inputName);
+                            } else {
+                                state.mutedInputs.delete(input.inputName);
+                            }
+                        } catch (e) { /* silencioso */ }
+                    }
+
+                    renderAudioInputs();
+                    dom.audioCount.textContent = state.audioInputs.length;
+                } catch (e) {
+                    console.warn('Error cargando entradas de audio:', e);
+                }
+            }
+
+            async function loadStreamState() {
+                if (!state.connected || !state.obs) return;
+                try {
+                    const result = await state.obs.call('GetStreamStatus');
+                    state.streaming = result.outputActive;
+                    updateStreamButton();
+                } catch (e) {
+                    console.warn('Error cargando estado de stream:', e);
+                }
+            }
+
+            async function loadRecordState() {
+                if (!state.connected || !state.obs) return;
+                try {
+                    const result = await state.obs.call('GetRecordStatus');
+                    state.recording = result.outputActive;
+                    updateRecordButton();
+                } catch (e) {
+                    console.warn('Error cargando estado de grabación:', e);
+                }
+            }
+
+            // =====================================================
+            // RENDERIZADO DE ESCENAS
+            // =====================================================
+            function renderScenes() {
+                if (!state.scenes || state.scenes.length === 0) {
+                    dom.sceneList.innerHTML = `
+                        <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                            <span class="text-obs-dim">[</span> SIN ESCENAS <span class="text-obs-dim">]</span>
+                        </div>`;
+                    return;
+                }
+
+                dom.sceneList.innerHTML = '';
+                state.scenes.forEach(scene => {
+                    const btn = document.createElement('button');
+                    btn.className = 'scene-btn';
+                    btn.dataset.sceneName = scene.sceneName;
+                    if (scene.sceneName === state.currentScene) {
+                        btn.classList.add('active-scene');
+                    }
+                    btn.innerHTML = `
+                        <span class="text-obs-muted text-[0.7rem] w-5 text-center flex-shrink-0">${scene.sceneIndex}</span>
+                        <span class="flex-1 overflow-hidden text-ellipsis">${escapeHtml(scene.sceneName)}</span>
+                        <span class="text-obs-dim text-[0.6rem] flex-shrink-0">▸</span>
+                    `;
+                    btn.addEventListener('click', () => switchScene(scene.sceneName));
+                    // Respuesta táctil inmediata
+                    btn.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        hapticFeedback(5);
+                    }, { passive: false });
+                    dom.sceneList.appendChild(btn);
+                });
+                dom.sceneCount.textContent = state.scenes.length;
+            }
+
+            function clearScenes() {
+                state.scenes = [];
+                dom.sceneList.innerHTML = `
+                    <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                        <span class="text-obs-dim">[</span> SIN CONEXIÓN <span class="text-obs-dim">]</span>
+                    </div>`;
+                dom.sceneCount.textContent = '0';
+            }
+
+            async function switchScene(sceneName) {
+                if (!state.connected || !state.obs) {
+                    showToast('✕ No hay conexión', 'error');
+                    return;
+                }
+                hapticFeedback(8);
+                try {
+                    await state.obs.call('SetCurrentProgramScene', { sceneName });
+                    // La actualización visual vendrá del evento CurrentSceneChanged
+                    showToast('→ ' + sceneName, 'success');
+                } catch (e) {
+                    showToast('✕ Error al cambiar escena', 'error');
+                    hapticFeedback([20, 30, 20]);
+                }
+            }
+
+            // =====================================================
+            // RENDERIZADO DE AUDIO
+            // =====================================================
+            function renderAudioInputs() {
+                if (!state.audioInputs || state.audioInputs.length === 0) {
+                    dom.audioList.innerHTML = `
+                        <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                            <span class="text-obs-dim">[</span> SIN ENTRADAS DE AUDIO <span class="text-obs-dim">]</span>
+                        </div>`;
+                    return;
+                }
+
+                dom.audioList.innerHTML = '';
+                state.audioInputs.forEach(input => {
+                    const row = document.createElement('div');
+                    row.className = 'audio-row';
+                    row.dataset.inputName = input.inputName;
+                    if (state.mutedInputs.has(input.inputName)) {
+                        row.classList.add('muted');
+                    }
+                    row.innerHTML = `
+                        <div class="audio-toggle">${state.mutedInputs.has(input.inputName) ? '🔇' : '🔊'}</div>
+                        <span class="audio-name">${escapeHtml(input.inputName)}</span>
+                        <span class="text-[0.6rem] text-obs-dim flex-shrink-0">${escapeHtml(input.inputKind || '')}</span>
+                    `;
+                    row.addEventListener('click', () => toggleAudioMute(input.inputName));
+                    row.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        hapticFeedback(5);
+                    }, { passive: false });
+                    dom.audioList.appendChild(row);
+                });
+                dom.audioCount.textContent = state.audioInputs.length;
+                updateAudioUI();
+            }
+
+            function clearAudioInputs() {
+                state.audioInputs = [];
+                state.mutedInputs.clear();
+                dom.audioList.innerHTML = `
+                    <div class="text-[0.7rem] text-obs-muted text-center py-4 tracking-wider">
+                        <span class="text-obs-dim">[</span> SIN CONEXIÓN <span class="text-obs-dim">]</span>
+                    </div>`;
+                dom.audioCount.textContent = '0';
+            }
+
+            async function toggleAudioMute(inputName) {
+                if (!state.connected || !state.obs) return;
+                hapticFeedback(6);
+                try {
+                    const currentMuted = state.mutedInputs.has(inputName);
+                    await state.obs.call('SetInputMute', {
+                        inputName,
+                        inputMuted: !currentMuted,
+                    });
+                    if (!currentMuted) {
+                        state.mutedInputs.add(inputName);
+                    } else {
+                        state.mutedInputs.delete(inputName);
+                    }
+                    updateAudioUI();
+                    // Actualizar iconos
+                    const rows = dom.audioList.querySelectorAll('.audio-row');
+                    rows.forEach(row => {
+                        if (row.dataset.inputName === inputName) {
+                            const toggle = row.querySelector('.audio-toggle');
+                            if (toggle) {
+                                toggle.textContent = state.mutedInputs.has(inputName) ? '🔇' : '🔊';
+                            }
+                        }
+                    });
+                } catch (e) {
+                    showToast('✕ Error al mutear', 'error');
+                }
+            }
+
+            // =====================================================
+            // CONTROL DE STREAM Y RECORD
+            // =====================================================
+            async function toggleStream() {
+                if (!state.connected || !state.obs) {
+                    showToast('✕ No hay conexión', 'error');
+                    return;
+                }
+                hapticFeedback(12);
+                try {
+                    if (state.streaming) {
+                        await state.obs.call('StopStream');
+                        showToast('■ Transmisión detenida', 'info');
+                    } else {
+                        await state.obs.call('StartStream');
+                        showToast('▶ Transmisión iniciada', 'success');
+                    }
+                } catch (e) {
+                    showToast('✕ Error en transmisión', 'error');
+                    hapticFeedback([30, 30, 30]);
+                }
+            }
+
+            async function toggleRecord() {
+                if (!state.connected || !state.obs) {
+                    showToast('✕ No hay conexión', 'error');
+                    return;
+                }
+                hapticFeedback(12);
+                try {
+                    if (state.recording) {
+                        await state.obs.call('StopRecord');
+                        showToast('■ Grabación detenida', 'info');
+                    } else {
+                        await state.obs.call('StartRecord');
+                        showToast('● Grabación iniciada', 'success');
+                    }
+                } catch (e) {
+                    showToast('✕ Error en grabación', 'error');
+                    hapticFeedback([30, 30, 30]);
+                }
+            }
+
+            // =====================================================
+            // VISTA PREVIA (SCREENSHOTS)
+            // =====================================================
+            function startPreviewLoop() {
+                stopPreviewLoop();
+                const interval = state.previewInterval;
+                dom.previewIntervalLabel.textContent = (interval / 1000).toFixed(1) + 's';
+
+                // Primer screenshot inmediato
+                capturePreview();
+
+                state.previewTimer = setInterval(() => {
+                    capturePreview();
+                }, interval);
+
+                updateLatencyBar(1); // Inicial
+            }
+
+            function stopPreviewLoop() {
+                if (state.previewTimer) {
+                    clearInterval(state.previewTimer);
+                    state.previewTimer = null;
+                }
+                updateLatencyBar(0);
+            }
+
+            async function capturePreview() {
+                if (!state.connected || !state.obs || !state.currentScene) {
+                    updatePreviewPlaceholder(false);
+                    return;
+                }
+
+                const startTime = performance.now();
+                try {
+                    const result = await state.obs.call('GetSourceScreenshot', {
+                        sourceName: state.currentScene,
+                        imageFormat: 'jpeg',
+                        imageWidth: PREVIEW_WIDTH,
+                        imageCompressionQuality: PREVIEW_QUALITY,
+                    });
+
+                    const endTime = performance.now();
+                    const latency = endTime - startTime;
+                    state.latency.value = latency;
+
+                    // Actualizar latencia mostrada
+                    dom.connLatencyText.textContent = formatLatency(latency) + ' ms';
+
+                    // Calcular calidad basada en latencia
+                    const quality = Math.max(0, Math.min(1, 1 - (latency / 500)));
+                    updateLatencyBar(quality);
+
+                    // Mostrar imagen
+                    if (result.imageData && result.imageData.startsWith('data:image')) {
+                        dom.previewImg.src = result.imageData;
+                        updatePreviewPlaceholder(true);
+                    } else {
+                        updatePreviewPlaceholder(false);
+                    }
+                } catch (e) {
+                    // Error silencioso en screenshot, mantener placeholder
+                    updatePreviewPlaceholder(false);
+                    updateLatencyBar(0);
+                }
+            }
+
+            // =====================================================
+            // MONITOR DE LATENCIA
+            // =====================================================
+            function startLatencyMonitor() {
+                stopLatencyMonitor();
+                // El monitoreo de latencia se hace a través de los screenshots
+                // y los eventos del WebSocket
+            }
+
+            function stopLatencyMonitor() {
+                // Latencia de screenshots ya se resetea en stopPreviewLoop
+            }
+
+            // =====================================================
+            // UTILIDADES ADICIONALES
+            // =====================================================
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function loadSavedConfig() {
+                try {
+                    const saved = localStorage.getItem('obsRemoteConfig');
+                    if (saved) {
+                        const config = JSON.parse(saved);
+                        if (config.host) dom.inputHost.value = config.host;
+                        if (config.port) dom.inputPort.value = config.port;
+                        if (config.password) dom.inputPassword.value = config.password;
+                        state.config = {
+                            host: config.host || '',
+                            port: config.port || DEFAULT_PORT,
+                            password: config.password || '',
+                        };
+                    }
+                } catch (e) {
+                    console.warn('No se pudo cargar la configuración guardada');
+                }
+            }
+
+            // =====================================================
+            // EVENT LISTENERS
+            // =====================================================
+            function setupEventListeners() {
+                // Toggle panel de conexión
+                dom.btnToggleConnPanel.addEventListener('click', () => {
+                    dom.connPanel.classList.toggle('open');
+                    hapticFeedback(5);
+                });
+
+                dom.btnToggleConnPanel.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    hapticFeedback(5);
+                }, { passive: false });
+
+                // Conectar
+                dom.btnConnect.addEventListener('click', () => {
+                    hapticFeedback(10);
+                    doConnect();
+                });
+                dom.btnConnect.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    hapticFeedback(10);
+                }, { passive: false });
+
+                // Desconectar
+                dom.btnDisconnect.addEventListener('click', () => {
+                    hapticFeedback(10);
+                    doDisconnect();
+                });
+                dom.btnDisconnect.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    hapticFeedback(10);
+                }, { passive: false });
+
+                // Stream
+                dom.btnStream.addEventListener('click', toggleStream);
+                dom.btnStream.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    hapticFeedback(8);
+                }, { passive: false });
+
+                // Record
+                dom.btnRecord.addEventListener('click', toggleRecord);
+                dom.btnRecord.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    hapticFeedback(8);
+                }, { passive: false });
+
+                // Slider de intervalo de preview
+                dom.previewIntervalSlider.addEventListener('input', () => {
+                    state.previewInterval = parseInt(dom.previewIntervalSlider.value);
+                    dom.previewIntervalLabel.textContent = (state.previewInterval / 1000).toFixed(1) + 's';
+                    if (state.connected) {
+                        startPreviewLoop();
+                    }
+                });
+
+                // Enter en campos de conexión
+                dom.inputHost.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') doConnect();
+                });
+                dom.inputPort.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') doConnect();
+                });
+                dom.inputPassword.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') doConnect();
+                });
+
+                // Prevenir scroll en la app cuando se interactúa con elementos táctiles
+                document.addEventListener('touchmove', (e) => {
+                    const target = e.target;
+                    const isScrollable = target.closest('.overflow-y-auto') || target.closest(
+                        '.preview-container');
+                    if (!isScrollable) {
+                        // Permitir scroll normal en listas
+                    }
+                }, { passive: true });
+            }
+
+            // =====================================================
+            // INICIALIZACIÓN
+            // =====================================================
+            function init() {
+                loadSavedConfig();
+                setupEventListeners();
+                updateConnectionUI();
+                updateStreamButton();
+                updateRecordButton();
+                updatePreviewPlaceholder(false);
+                dom.previewIntervalSlider.value = DEFAULT_INTERVAL;
+                dom.previewIntervalLabel.textContent = (DEFAULT_INTERVAL / 1000).toFixed(1) + 's';
+
+                // Auto-conexión si hay config guardada
+                if (state.config.host) {
+                    // Mostrar panel de conexión con los datos
+                    dom.connPanel.classList.add('open');
+                    showToast('Configuración cargada. Pulsa CONECTAR para continuar.', 'info');
+                } else {
+                    // Mostrar panel en primer arranque
+                    dom.connPanel.classList.add('open');
+                    showToast('⚙ Configura la conexión a OBS', 'info');
+                }
+
+                console.log('%c OBS REMOTE CONTROL v1.0 ',
+                    'background: #000; color: #00ff88; font-family: monospace; padding: 4px 8px; border: 1px solid #00ff88; border-radius: 4px;'
+                    );
+                console.log('%c Ultra Low Latency · Mobile First ', 'color: #666; font-family: monospace;');
+            }
+
+            // Iniciar la aplicación
+            init();
+
+            // Manejar cierre de página
+            window.addEventListener('beforeunload', () => {
+                if (state.obs) {
+                    try { state.obs.disconnect(); } catch (e) {}
+                }
+                stopPreviewLoop();
+                clearTimeout(state.reconnectTimer);
+            });
+
+            // Manejar visibilidad de la página
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    // Pausar preview cuando la página no es visible
+                    stopPreviewLoop();
+                } else {
+                    // Reanudar si está conectado
+                    if (state.connected) {
+                        startPreviewLoop();
+                    }
+                }
+            });
+
+        })();
+    </script>
+</body>
+</html>
